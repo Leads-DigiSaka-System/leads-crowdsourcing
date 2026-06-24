@@ -1,0 +1,41 @@
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { NextResponse } from "next/server";
+
+export async function POST(req) {
+  try {
+    const { token, password } = await req.json();
+    if (!token || typeof token !== "string") {
+      return NextResponse.json({ message: "Missing token" }, { status: 400 });
+    }
+    if (!password || typeof password !== "string" || password.length < 6) {
+      return NextResponse.json({ message: "Password must be at least 6 characters" }, { status: 400 });
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const now = new Date();
+    const record = await prisma.passwordReset.findFirst({ where: { tokenHash, usedAt: null, expiresAt: { gt: now } } });
+    if (!record) {
+      return NextResponse.json({ message: "Invalid or expired token" }, { status: 400 });
+    }
+
+ 
+    const user = await prisma.user.findUnique({ where: { id: record.userId } });
+    if (!user || user.password == null) {
+      return NextResponse.json({ message: "This account uses Google sign-in. Password cannot be changed." }, { status: 400 });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: user.id }, data: { password: hash } }),
+      prisma.passwordReset.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+     
+      prisma.passwordReset.deleteMany({ where: { userId: user.id, usedAt: null } }),
+    ]);
+
+    return NextResponse.json({ message: "Password updated" }, { status: 200 });
+  } catch (e) {
+    return NextResponse.json({ message: "Unexpected error" }, { status: 500 });
+  }
+}
