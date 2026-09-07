@@ -4,6 +4,8 @@ import {
   Carousel,
   CarouselContent,
   CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { motion } from "framer-motion";
@@ -22,6 +24,15 @@ const Hero = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [imageLoaded, setImageLoaded] = useState({});
+  const [imageFailed, setImageFailed] = useState({});
+  const [autoplay] = useState(() =>
+    Autoplay({
+      delay: 5000,
+      stopOnInteraction: false,
+      stopOnMouseEnter: true,
+      stopOnFocusIn: true,
+    })
+  );
 
   useEffect(() => {
     let active = true;
@@ -142,25 +153,24 @@ const Hero = () => {
               </div>
 
               {/* Right column - Research image */}
-              <div className="relative">
+              <div className="relative min-w-0">
                 <Carousel
                   opts={{
                     align: "start",
                     loop: true,
                   }}
-                  plugins={[
-                    Autoplay({
-                      delay: 3000,
-                      stopOnInteraction: false,
-                      stopOnMouseEnter: false,
-                    }),
-                  ]}
+                  plugins={[autoplay]}
                   className="w-full"
+                  aria-label="Featured research projects"
                 >
                   <CarouselContent>
                     {loading ? (
                       <CarouselItem key="skeleton">
-                        <div className="relative rounded-2xl overflow-hidden">
+                        <div
+                          className="relative h-[400px] lg:h-[500px] rounded-2xl overflow-hidden bg-muted animate-pulse"
+                          role="status"
+                          aria-label="Loading featured research"
+                        >
                           <div className="absolute bottom-0 left-0 right-0 bg-primary px-6 py-4" />
                         </div>
                       </CarouselItem>
@@ -181,29 +191,33 @@ const Hero = () => {
                         return (
                           <CarouselItem key={id}>
                             <Link
-                              href={`/discover/${project.slug || id}`}
-                              className="relative rounded-2xl overflow-hidden cursor-pointer"
+                              href={project.id === "placeholder-1" ? "/discover" : `/discover/${project.slug || id}`}
+                              className="relative block w-full h-[400px] lg:h-[500px] rounded-2xl overflow-hidden cursor-pointer"
                             >
                               {showPlaceholder && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-muted animate-pulse z-10"></div>
                               )}
                               <Image
                                 src={
-                                  project.image || "/demo images/NCAS-App.png"
+                                  imageFailed[id] ? "/demo images/NCAS-App.png" : project.image || "/demo images/NCAS-App.png"
                                 }
                                 alt={project.title}
-                                width={400}
-                                height={400}
-                                className="w-full h-[400px] lg:h-[500px] object-cover"
-                                loading="lazy"
+                                fill
+                                sizes="(max-width: 1023px) 100vw, 50vw"
+                                className="object-cover"
+                                loading={idx === 0 ? "eager" : "lazy"}
                                 onLoad={() => handleImageLoad(id)}
+                                onError={() => {
+                                  setImageFailed((prev) => ({ ...prev, [id]: true }));
+                                  handleImageLoad(id);
+                                }}
                               />
-                              <div className="absolute bottom-0 left-0 right-0 bg-primary px-6 py-4">
+                              <div className="absolute bottom-0 inset-x-0 z-20 bg-primary px-6 py-4">
                                 <div className="text-white">
-                                  <h3 className="font-semibold text-lg mb-1">
+                                  <h3 className="font-semibold text-lg mb-1 break-words line-clamp-4">
                                     {project.title}
                                   </h3>
-                                  <p className="text-sm opacity-90">
+                                  <p className="text-sm opacity-90 line-clamp-2">
                                     {project.authors}
                                   </p>
                                 </div>
@@ -214,6 +228,12 @@ const Hero = () => {
                       })
                     )}
                   </CarouselContent>
+                  {projects.length > 1 && (
+                    <>
+                      <CarouselPrevious className="left-3 z-30" />
+                      <CarouselNext className="right-3 z-30" />
+                    </>
+                  )}
                 </Carousel>
               </div>
             </div>
