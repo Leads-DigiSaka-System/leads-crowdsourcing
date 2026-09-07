@@ -1,14 +1,15 @@
 "use client"
 
+import { flexRender } from "@tanstack/react-table";
+
 import * as React from "react"
 import {
-    flexRender,
     getCoreRowModel,
     getFilteredRowModel,
     getPaginationRowModel,
     getSortedRowModel,
-    useReactTable,
-} from "@tanstack/react-table"
+    useLegacyTable,
+} from "@tanstack/react-table/legacy"
 
 import {
     Table,
@@ -27,7 +28,7 @@ export function MeetingsDataTable({ columns, data, searchKey, searchPlaceholder 
     const [columnFilters, setColumnFilters] = React.useState([])
     const [globalFilter, setGlobalFilter] = React.useState("")
 
-    const table = useReactTable({
+    const table = useLegacyTable({
         data,
         columns,
         getCoreRowModel: getCoreRowModel(),

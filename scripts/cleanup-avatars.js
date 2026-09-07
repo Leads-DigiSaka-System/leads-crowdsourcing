@@ -1,9 +1,11 @@
+require('dotenv/config')
+const { PrismaPg } = require('@prisma/adapter-pg')
 // Cleanup script to nullify default avatar URLs in the database
 // Only affects exact matches of 'https://avatar.iran.liara.run/public' for User.image and TeamMember.image
 
 const { PrismaClient } = require('@prisma/client')
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
 
 const DEFAULT_AVATAR = 'https://avatar.iran.liara.run/public'
 

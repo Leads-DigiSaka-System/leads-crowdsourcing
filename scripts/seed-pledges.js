@@ -1,6 +1,8 @@
+require('dotenv/config')
+const { PrismaPg } = require('@prisma/adapter-pg')
 // Use CommonJS for compatibility
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 async function main() {
     console.log('🌱 Seeding pledges for test donors...');

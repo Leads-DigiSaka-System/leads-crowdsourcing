@@ -12,7 +12,8 @@ import {
   getActiveBudgetItemByOrder,
   getBudgetItemAllocated,
 } from "@/lib/utils";
-import { Facebook, HelpCircle, MessageSquare, MapPin } from "lucide-react";
+import { HelpCircle, MessageSquare, MapPin } from "lucide-react";
+import { Facebook } from "@/components/ui/social-icons";
 import {
   Breadcrumb,
   BreadcrumbList,

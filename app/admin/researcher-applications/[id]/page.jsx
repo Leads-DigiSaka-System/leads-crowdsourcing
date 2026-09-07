@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ const statusLabels = {
 };
 
 export default function AdminApplicationDetailPage({ params }) {
+  const { id } = use(params);
   const router = useRouter();
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,12 +40,12 @@ export default function AdminApplicationDetailPage({ params }) {
 
   useEffect(() => {
     fetchApplication();
-  }, [params.id]);
+  }, [id]);
 
   const fetchApplication = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/researcher-applications/${params.id}`);
+      const response = await fetch(`/api/researcher-applications/${id}`);
       const data = await response.json();
 
       if (data.success) {
@@ -66,8 +67,8 @@ export default function AdminApplicationDetailPage({ params }) {
       setActionLoading(true);
       const endpoint =
         action === "approve"
-          ? `/api/admin/researcher-applications/${params.id}/approve`
-          : `/api/admin/researcher-applications/${params.id}/reject`;
+          ? `/api/admin/researcher-applications/${id}/approve`
+          : `/api/admin/researcher-applications/${id}/reject`;
 
       const response = await fetch(endpoint, {
         method: "POST",

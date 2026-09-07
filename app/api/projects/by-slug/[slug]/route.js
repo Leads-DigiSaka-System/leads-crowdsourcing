@@ -1,7 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server';
 
-const prisma = new PrismaClient();
 
 // GET handler for fetching a single project by slug (or ID as fallback)
 export async function GET(request, { params }) {

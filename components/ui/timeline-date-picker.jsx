@@ -284,12 +284,12 @@ export function TimelineDatePicker({ value, onChange }) {
                         <Calendar
                             mode="single"
                             captionLayout="dropdown"
-                            fromYear={fromYear}
-                            toYear={toYear}
+                            startMonth={new Date(fromYear, 0)}
+                            endMonth={new Date(toYear, 11)}
                             selected={singleSelected}
                             defaultMonth={singleSelected || new Date()}
                             onSelect={setSingleSelected}
-                            initialFocus
+                            autoFocus
                         />
                     ) : (
                         <div className="flex gap-4">
@@ -297,23 +297,23 @@ export function TimelineDatePicker({ value, onChange }) {
                                 <Calendar
                                     mode="range"
                                     numberOfMonths={1}
-                                    captionLayout="none"
-                                    fromYear={fromYear}
-                                    toYear={toYear}
+                                    classNames={{ month_caption: "hidden" }}
+                                    startMonth={new Date(fromYear, 0)}
+                                    endMonth={new Date(toYear, 11)}
                                     selected={range}
                                     month={startMonth}
                                     onSelect={handleRangeSelect}
                                     showOutsideDays={false}
-                                    initialFocus
+                                    autoFocus
                                 />
                             </div>
                             <div>
                                 <Calendar
                                     mode="range"
                                     numberOfMonths={1}
-                                    captionLayout="none"
-                                    fromYear={fromYear}
-                                    toYear={toYear}
+                                    classNames={{ month_caption: "hidden" }}
+                                    startMonth={new Date(fromYear, 0)}
+                                    endMonth={new Date(toYear, 11)}
                                     selected={range}
                                     month={endMonth}
                                     onSelect={handleRangeSelect}

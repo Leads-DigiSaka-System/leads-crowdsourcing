@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['placehold.co', 'avatar.iran.liara.run', 'files.edgestore.dev'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'placehold.co' },
+      { protocol: 'https', hostname: 'avatar.iran.liara.run' },
+      { protocol: 'https', hostname: 'files.edgestore.dev' },
+    ],
   },
 };
 

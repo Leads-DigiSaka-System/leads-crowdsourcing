@@ -3,7 +3,8 @@
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Mail, Linkedin, Twitter, ExternalLink } from "lucide-react"
+import { Mail, ExternalLink } from "lucide-react"
+import { Linkedin, Twitter } from "@/components/ui/social-icons"
 import { nameTitleCase } from "@/lib/utils"
 
 export default function TeamMemberCard({

@@ -1,8 +1,7 @@
 import { slugify } from '@/lib/utils';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'; // Import NextResponse for App Router API routes
 
-const prisma = new PrismaClient();
 
 // GET handler for fetching a single project by id
 export async function GET(request, { params }) {

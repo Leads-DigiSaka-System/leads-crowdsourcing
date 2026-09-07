@@ -1,5 +1,7 @@
 "use client";
 
+import { flexRender } from "@tanstack/react-table";
+
 import {
   Table,
   TableBody,
@@ -9,12 +11,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  useLegacyTable,
+} from "@tanstack/react-table/legacy";
 
 export function DataTable({
   columns,
@@ -22,7 +23,7 @@ export function DataTable({
   globalFilter,
   onGlobalFilterChange,
 }) {
-  const table = useReactTable({
+  const table = useLegacyTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),

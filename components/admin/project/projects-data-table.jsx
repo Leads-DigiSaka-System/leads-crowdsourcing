@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { flexRender } from "@tanstack/react-table";
+
+import { useState } from "react";
 import {
-  flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
+  useLegacyTable,
+} from "@tanstack/react-table/legacy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -86,10 +87,12 @@ export function ProjectsDataTable({
   const router = useRouter();
   const { edgestore } = useEdgeStore();
   const [data, setData] = useState(initialData);
+  const [previousData, setPreviousData] = useState(initialData);
   // Keep internal data in sync when parent supplies new list (e.g., toggling archive view)
-  useEffect(() => {
+  if (initialData !== previousData) {
+    setPreviousData(initialData);
     setData(initialData);
-  }, [initialData]);
+  }
   const [sorting, setSorting] = useState([]);
   const [columnFilters, setColumnFilters] = useState([]);
   const [globalFilter, setGlobalFilter] = useState("");
@@ -1039,7 +1042,7 @@ export function ProjectsDataTable({
     },
   ];
 
-  const table = useReactTable({
+  const table = useLegacyTable({
     data,
     columns,
     onSortingChange: setSorting,

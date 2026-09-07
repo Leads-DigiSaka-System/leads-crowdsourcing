@@ -1,5 +1,7 @@
+require('dotenv/config')
+const { PrismaPg } = require('@prisma/adapter-pg')
 const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 // Slugify function matching the one in utils.js
 function slugify(str) {
