@@ -38,9 +38,9 @@ export const metadata = {
   openGraph: {
     images: [
       {
-        url: "https://impactofresearch.fund/researchbayanihan_logo.svg",
-        alt: "IMPACT Research Crowdsourcing Logo",
-        type: "image/svg+xml",
+        url: "https://impactofresearch.fund/impact_logo.png",
+        alt: "IMPACT R&D logo",
+        type: "image/png",
         width: 1280,
         height: 930
       }
@@ -49,7 +49,10 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     images: [
-      "https://impactofresearch.fund/researchbayanihan_logo.svg"
+      {
+        url: "https://impactofresearch.fund/impact_logo.png",
+        alt: "IMPACT R&D logo"
+      }
     ]
   }
 };

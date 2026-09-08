@@ -42,7 +42,7 @@ export async function generateMetadata({ params }) {
   const imageUrl = project.image?.startsWith("http")
     ? project.image
     : `${publicBaseUrl}${project.image?.startsWith("/") ? "" : "/"}${
-        project.image || "researchbayanihan_logo.png"
+        project.image || "impact_logo.png"
       }`;
 
   return {
@@ -56,9 +56,9 @@ export async function generateMetadata({ params }) {
       images: [
         {
           url: imageUrl,
-          width: 1200,
-          height: 630,
-          alt: project.title,
+          width: project.image ? 1200 : 1280,
+          height: project.image ? 630 : 930,
+          alt: project.image ? project.title : "IMPACT R&D logo",
         },
       ],
     },
