@@ -24,7 +24,7 @@ import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import * as z from "zod";
@@ -33,6 +33,12 @@ const formSchema = z.object({
   username: z.string().min(1, "Username or email is required"),
   password: z.string().min(1, "Password is required"),
 });
+
+const authErrorMessages = new Map([
+  ["OAuthAccountNotLinked", "This email already has an account. Sign in with your password, or try a different Google account."],
+  ["AccessDenied", "Google sign-in was cancelled or access was denied. Please try again."],
+  ["Configuration", "Google sign-in is currently unavailable. Please use your password or contact support."],
+]);
 
 export function LoginForm({
   callbackUrl = "/admin",
@@ -44,17 +50,10 @@ export function LoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [serverError, setServerError] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
-  const oauthError = searchParams?.get("error") === "OAuthAccountNotLinked";
-
-  // Optional: clear the error param after first render to avoid persistent state on navigation
-  useEffect(() => {
-    if (oauthError) {
-      // Replace the URL without query param (avoid full reload)
-      const url = new URL(window.location.href);
-      url.searchParams.delete("error");
-      window.history.replaceState({}, "", url.toString());
-    }
-  }, [oauthError]);
+  const authError = searchParams?.get("error");
+  const oauthError = authError
+    ? (authErrorMessages.get(authError) || "Sign-in could not be completed. Please try again.")
+    : "";
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -165,18 +164,7 @@ export function LoginForm({
                   className="border-red-200 bg-red-50"
                 >
                   <AlertDescription className="text-red-800">
-                    {oauthError ? (
-                      <>
-                        This email is already registered using a password.
-                        Please sign in with your username/email & password
-                        instead.{" "}
-                        <span className="font-semibold">
-                          Google sign-in cannot be linked automatically
-                        </span>
-                      </>
-                    ) : (
-                      serverError
-                    )}
+                    {serverError || oauthError}
                   </AlertDescription>
                 </Alert>
               )}
@@ -308,11 +296,12 @@ export function LoginForm({
                 type="button"
                 variant="outline"
                 className={`w-full ${compact ? "h-9" : "h-12"}`}
-                disabled={googleLoading || oauthError}
+                disabled={googleLoading || isLoading}
                 onClick={async () => {
                   try {
+                    setServerError("");
                     setGoogleLoading(true);
-                    await signIn("google", { callbackUrl });
+                    await signIn("google", { redirectTo: callbackUrl }, { prompt: "select_account" });
                   } catch (e) {
                     setGoogleLoading(false);
                     toast.error("Google sign-in failed");
@@ -341,11 +330,9 @@ export function LoginForm({
                     d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.084,5.571 c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
                   />
                 </svg>
-                {oauthError
-                  ? "Google Sign-In Disabled"
-                  : googleLoading
-                    ? "Redirecting..."
-                    : "Continue with Google"}
+                {googleLoading
+                  ? "Redirecting..."
+                  : "Continue with Google"}
               </Button>
 
               <p
