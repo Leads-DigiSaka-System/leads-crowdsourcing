@@ -521,7 +521,16 @@ export default function ProjectDetail({
                     <p className="text-xs text-muted-foreground">
                       By continuing, you confirm that: (1) funds are not from
                       illegal sources, and (2) donations must not be used for
-                      greenwashing. Standard donation terms apply.
+                      greenwashing.{" "}
+                      <Link
+                        href="/terms-of-service#donations"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline underline-offset-4 hover:text-primary/80"
+                      >
+                        Standard donation terms
+                      </Link>{" "}
+                      apply.
                     </p>
                     <div className="flex items-center gap-2">
                       <Checkbox
@@ -566,7 +575,7 @@ export default function ProjectDetail({
           {showShare && (
             <div className="mt-4">
               <div className="text-sm text-muted-foreground mb-2">
-                Can't donate? Help by sharing this project:
+                Can&apos;t donate? Help by sharing this project:
               </div>
               <div className="flex gap-3">
                 <Button

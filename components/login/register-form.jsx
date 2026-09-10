@@ -256,7 +256,23 @@ export default function RegisterForm() {
       </Card>
 
       <div className="text-center mt-8 text-sm text-gray-500">
-        <p>By creating an account you agree to our Terms and Privacy Policy.</p>
+        <p>
+          By creating an account you agree to our{" "}
+          <Link
+            href="/terms-of-service"
+            className="text-primary underline underline-offset-4 hover:text-primary/80"
+          >
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/privacy-policy"
+            className="text-primary underline underline-offset-4 hover:text-primary/80"
+          >
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

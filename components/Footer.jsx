@@ -1,5 +1,6 @@
 "use client";
 import { Mail, MapPin, Phone } from "lucide-react";
+import Link from "next/link";
 
 const partners = [
   {
@@ -105,8 +106,7 @@ const Footer = () => {
               <ul className="space-y-3">
                 <li>
                   <a
-                    href="#"
-                    onClick={(e) => e.preventDefault()}
+                    href="mailto:main@impactrd.org"
                     className="flex items-center text-muted-foreground hover:text-primary transition-colors"
                   >
                     <Mail className="w-4 h-4 mr-2" />
@@ -201,20 +201,18 @@ const Footer = () => {
                 © 2025 IMPACT R&D Philippines. All rights reserved.
               </div>
               <div className="flex flex-wrap gap-6 text-sm">
-                <a
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
+                <Link
+                  href="/privacy-policy"
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Privacy Policy
-                </a>
-                <a
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
+                </Link>
+                <Link
+                  href="/terms-of-service"
                   className="text-muted-foreground hover:text-primary transition-colors"
                 >
                   Terms of Service
-                </a>
+                </Link>
                 <a
                   href="#"
                   onClick={(e) => e.preventDefault()}
