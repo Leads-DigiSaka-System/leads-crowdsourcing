@@ -22,8 +22,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -41,7 +40,6 @@ const schema = z
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [valid, setValid] = useState(null);
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -118,9 +116,6 @@ export default function ResetPasswordPage() {
               <TokenGate
                 form={form}
                 isLoading={isLoading}
-                setIsLoading={setIsLoading}
-                valid={valid}
-                setValid={setValid}
                 onSubmit={onSubmit}
               />
             </Suspense>
@@ -134,42 +129,94 @@ export default function ResetPasswordPage() {
   );
 }
 
-function TokenGate({ form, isLoading, setIsLoading, valid, setValid, onSubmit }) {
+function TokenGate({ form, isLoading, onSubmit }) {
   const search = useSearchParams();
   const token = search?.get("t") || "";
+  const [attempt, setAttempt] = useState(0);
+  const [validation, setValidation] = useState(null);
+  const status = !token
+    ? "invalid"
+    : validation?.token === token && validation?.attempt === attempt
+      ? validation.status
+      : "checking";
 
   useEffect(() => {
+    if (!token) return;
+    const controller = new AbortController();
+
     async function check() {
-      if (!token) {
-        setValid(false);
-        return;
-      }
       try {
         const res = await fetch(
-          `/api/auth/reset-token-status?t=${encodeURIComponent(token)}`
+          `/api/auth/reset-token-status?t=${encodeURIComponent(token)}`,
+          { signal: controller.signal, cache: "no-store" }
         );
-        setValid(res.ok);
-        if (!res.ok) toast.error("Reset link is invalid or expired.");
+        if (controller.signal.aborted) return;
+        setValidation({
+          token,
+          attempt,
+          status: res.ok
+            ? "valid"
+            : res.status === 400 || res.status === 404
+              ? "invalid"
+              : "error",
+        });
       } catch {
-        setValid(false);
+        if (!controller.signal.aborted) {
+          setValidation({ token, attempt, status: "error" });
+        }
       }
     }
     check();
-  }, [token, setValid]);
+    return () => controller.abort();
+  }, [token, attempt]);
 
-  if (valid === false) {
+  if (status === "checking") {
     return (
       <CardContent>
-        <p className="text-sm text-red-700">
+        <p className="text-sm text-muted-foreground" role="status">
+          Checking your reset link...
+        </p>
+      </CardContent>
+    );
+  }
+
+  if (status === "invalid") {
+    return (
+      <CardContent className="space-y-4">
+        <p className="text-sm text-red-700" role="alert">
           This reset link is invalid or has expired. Please request a new one.
         </p>
+        <Button asChild className="w-full h-12 font-medium rounded-lg">
+          <Link href="/forgot-password">Request a new reset link</Link>
+        </Button>
+      </CardContent>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <CardContent className="space-y-4">
+        <p className="text-sm text-red-700" role="alert">
+          We could not check your reset link. Please try again.
+        </p>
+        <Button
+          type="button"
+          className="w-full h-12 font-medium rounded-lg"
+          onClick={() => setAttempt((current) => current + 1)}
+        >
+          Try again
+        </Button>
       </CardContent>
     );
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit((values) => onSubmit(values, token))}>
+      <form
+        onSubmit={form.handleSubmit((values) => {
+          if (status === "valid" && !isLoading) return onSubmit(values, token);
+        })}
+      >
         <CardContent className="space-y-6">
           <FormField
             control={form.control}
@@ -180,6 +227,7 @@ function TokenGate({ form, isLoading, setIsLoading, valid, setValid, onSubmit })
                 <FormControl>
                   <Input
                     type="password"
+                    autoComplete="new-password"
                     placeholder="Enter new password"
                     {...field}
                     className="h-12"
@@ -198,6 +246,7 @@ function TokenGate({ form, isLoading, setIsLoading, valid, setValid, onSubmit })
                 <FormControl>
                   <Input
                     type="password"
+                    autoComplete="new-password"
                     placeholder="Confirm new password"
                     {...field}
                     className="h-12"
@@ -212,7 +261,7 @@ function TokenGate({ form, isLoading, setIsLoading, valid, setValid, onSubmit })
           <Button
             type="submit"
             className="w-full h-12 font-medium rounded-lg"
-            disabled={isLoading || valid === false}
+            disabled={isLoading || status !== "valid"}
           >
             {isLoading ? "Updating..." : "Update password"}
           </Button>

@@ -1,96 +1,106 @@
 import { sendPasswordResetEmail } from "@/lib/email";
+import { createPasswordResetUrl } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 function maskEmail(email) {
-  if (!email || typeof email !== "string") return "your email";
   const [local, domain] = email.split("@");
-  if (!domain) return email;
-  const maskedLocal = local.length <= 2 ? `${local[0] || "*"}*` : `${local.slice(0, 2)}***`;
+  const maskedLocal = local.length <= 2 ? `${local[0]}*` : `${local.slice(0, 2)}***`;
   return `${maskedLocal}@${domain}`;
 }
 
+const emailSchema = z.string().trim().toLowerCase().email();
 const ACCOUNT_DAILY_LIMIT = 3;
 const ACCOUNT_COOLDOWN_SECONDS = 60;
 const IP_HOURLY_LIMIT = 10;
-const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const TOKEN_EXPIRY_MS = 60 * 60 * 1000;
 
 export async function POST(req) {
   try {
-    const { email } = await req.json();
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!email || typeof email !== "string") {
+    const body = await req.json().catch(() => null);
+    const parsed = emailSchema.safeParse(body?.email);
+    if (!parsed.success) {
       return NextResponse.json({ message: "Invalid email" }, { status: 400 });
     }
-
+    const email = parsed.data;
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const user = await prisma.user.findUnique({ where: { email } });
     const maskedEmail = maskEmail(email);
 
-  
     if (!user) {
-      return NextResponse.json({ message: "If this email exists, we sent a reset link.", maskedEmail }, { status: 200 });
+      return NextResponse.json({ message: "If this email exists, we sent a reset link.", maskedEmail });
     }
-
-   
     if (user.password == null) {
-      return NextResponse.json({ code: "GOOGLE_ONLY", message: "This account uses Google sign-in. You cannot change the password.", maskedEmail }, { status: 400 });
+      return NextResponse.json({ code: "GOOGLE_ONLY", message: "This account uses Google sign-in. Please continue with Google.", maskedEmail }, { status: 400 });
     }
 
-    const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-   
-    const recentForAccount = await prisma.passwordReset.count({
-      where: { userId: user.id, createdAt: { gte: oneDayAgo } },
-    });
-    if (recentForAccount >= ACCOUNT_DAILY_LIMIT) {
-      return NextResponse.json({ message: "Reset limit reached. Please try again later.", maskedEmail }, { status: 429 });
-    }
-
-   
-    const lastForAccount = await prisma.passwordReset.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-    });
-    if (lastForAccount && now.getTime() - lastForAccount.createdAt.getTime() < ACCOUNT_COOLDOWN_SECONDS * 1000) {
-      return NextResponse.json({ message: "Please wait a moment before trying again.", maskedEmail }, { status: 429 });
-    }
-
-   
-    const ipHourlyCount = await prisma.passwordReset.count({ where: { requestIp: ip, createdAt: { gte: oneHourAgo } } });
-    if (ipHourlyCount >= IP_HOURLY_LIMIT) {
-      return NextResponse.json({ message: "Too many requests from your IP. Try again later.", maskedEmail }, { status: 429 });
-    }
-
-  
-    const active = await prisma.passwordReset.findFirst({
-      where: { userId: user.id, usedAt: null, expiresAt: { gt: now } },
-      orderBy: { createdAt: "desc" },
-    });
-    if (active) {
-      return NextResponse.json({ code: "TOKEN_ACTIVE", message: "A reset link was already sent. Please check your email.", maskedEmail }, { status: 409 });
-    }
-
- 
-    await prisma.passwordReset.deleteMany({ where: { userId: user.id, usedAt: null, expiresAt: { lte: now } } });
-
- 
     const rawToken = crypto.randomBytes(32).toString("hex");
+    const resetUrl = createPasswordResetUrl(rawToken);
     const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
-    const expiresAt = new Date(now.getTime() + TOKEN_EXPIRY_MS);
 
-    const created = await prisma.passwordReset.create({
-      data: { userId: user.id, tokenHash, expiresAt, requestIp: ip },
+    // Reserve the request atomically so concurrent requests cannot bypass limits.
+    let reservation;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        reservation = await prisma.$transaction(async (tx) => {
+          const now = new Date();
+          const recentForAccount = await tx.passwordReset.count({
+            where: { userId: user.id, createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
+          });
+          if (recentForAccount >= ACCOUNT_DAILY_LIMIT) {
+            return { message: "Reset limit reached. Please try again later." };
+          }
+          const lastForAccount = await tx.passwordReset.findFirst({
+            where: { userId: user.id }, orderBy: { createdAt: "desc" },
+          });
+          if (lastForAccount && now.getTime() - lastForAccount.createdAt.getTime() < ACCOUNT_COOLDOWN_SECONDS * 1000) {
+            return { message: "Please wait one minute before requesting another reset link." };
+          }
+          const ipHourlyCount = await tx.passwordReset.count({
+            where: { requestIp: ip, createdAt: { gte: new Date(now.getTime() - TOKEN_EXPIRY_MS) } },
+          });
+          if (ipHourlyCount >= IP_HOURLY_LIMIT) {
+            return { message: "Too many requests from your IP. Try again later." };
+          }
+          const record = await tx.passwordReset.create({
+            data: { userId: user.id, tokenHash, expiresAt: new Date(now.getTime() + TOKEN_EXPIRY_MS), requestIp: ip },
+          });
+          return { record };
+        }, { isolationLevel: "Serializable" });
+        break;
+      } catch (error) {
+        if (error.code !== "P2034" || attempt === 2) throw error;
+      }
+    }
+    if (!reservation.record) {
+      return NextResponse.json({ message: reservation.message, maskedEmail }, { status: 429 });
+    }
+
+    try {
+      const result = await sendPasswordResetEmail({ to: user.email, resetUrl, maskedEmail });
+      // Resend reports rejected messages through error, without necessarily throwing.
+      if (result?.error || !result?.data?.id) {
+        console.error("Password reset email rejected:", result?.error?.name || "missing_message_id");
+        throw new Error("Email provider did not accept the reset email");
+      }
+    } catch (error) {
+      // Failed delivery must not leave an unusable token or consume the retry quota.
+      await prisma.passwordReset.deleteMany({ where: { id: reservation.record.id } });
+      console.error("Password reset email failed:", error.name);
+      return NextResponse.json({ message: "Unable to send the reset email. Please try again shortly." }, { status: 503 });
+    }
+
+    // Resends are allowed after the cooldown. Retire older links only after acceptance.
+    // Keep their history so successful resets and expired links still count toward limits.
+    await prisma.passwordReset.updateMany({
+      where: { userId: user.id, id: { not: reservation.record.id }, usedAt: null, createdAt: { lte: reservation.record.createdAt } },
+      data: { usedAt: new Date() },
     });
-
- 
-    const url = `${process.env.NEXT_PUBLIC_APP_URL || ""}/reset-password?t=${encodeURIComponent(rawToken)}`;
-    await sendPasswordResetEmail({ to: email, resetUrl: url, maskedEmail });
-
-    return NextResponse.json({ message: "We sent a password reset link.", maskedEmail }, { status: 200 });
-  } catch (e) {
-    return NextResponse.json({ message: "Unexpected error" }, { status: 500 });
+    return NextResponse.json({ message: "We sent a password reset link. Please use the most recent email.", maskedEmail });
+  } catch (error) {
+    console.error("Password reset request failed:", error.name);
+    return NextResponse.json({ message: "Unable to process the request. Please try again shortly." }, { status: 500 });
   }
 }

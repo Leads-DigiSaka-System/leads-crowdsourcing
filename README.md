@@ -57,6 +57,14 @@ The updated code also supports `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`, which 
 
 Google accounts using an email already registered with a password must sign in with that password; automatic account linking is disabled. A failed attempt keeps the Google button available so a different Google account can be selected.
 
+## Password recovery
+
+The VPS needs `RESEND_API_KEY` and a verified sending domain in Resend. The default sender is `IMPACT R&D <support@impactofresearch.fund>`; set `APP_EMAIL_SENDER` to override it with another verified sender. Google OAuth credentials do not configure email delivery. See [Resend's Next.js setup](https://resend.com/docs/send-with-nextjs).
+
+Reset links use `AUTH_URL`, then `NEXTAUTH_URL`, then `NEXT_PUBLIC_APP_URL`. Configure the production origin as `https://impactofresearch.fund`; missing URLs and localhost or non-HTTPS origins in production are rejected. Links expire after one hour and are usable once. A replacement link may be requested after one minute, up to three requests per account per day and ten per IP per hour. Use the most recent email. Failed sends report an error and release their token so another attempt can be made.
+
+Run `npm run test:password-reset` for isolated regression tests. These tests mock email and database operations and do not send messages or change existing accounts. Deploy the code and restart the VPS application to apply changes; local edits do not update production.
+
 You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

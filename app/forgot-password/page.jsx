@@ -28,7 +28,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 const schema = z.object({
-  email: z.string().email("Please enter a valid email"),
+  email: z.string().trim().email("Please enter a valid email"),
 });
 
 export default function ForgotPasswordPage() {
@@ -129,6 +129,7 @@ export default function ForgotPasswordPage() {
                         <FormControl>
                           <Input
                             type="email"
+                            autoComplete="email"
                             placeholder="you@example.com"
                             {...field}
                             className="h-12"
