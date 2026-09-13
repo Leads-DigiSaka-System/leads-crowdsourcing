@@ -50,6 +50,10 @@ const ProjectCard = ({ project, teams, description }) => {
   // Expect project.category to be either null or:
   // { id, name, slug, colorHex, textColor }
   const categoryName = project?.category?.name || null;
+  const categoryLabel =
+    categoryName?.trim().toLowerCase() === "environment"
+      ? "Agriculture"
+      : categoryName;
   const categoryColor = project?.category?.colorHex || "#e0f2fe";
   const categoryTextColorRaw = project?.category?.textColor || "black";
   // Use slug from project, fallback to slugified ID if not available
@@ -138,7 +142,7 @@ const ProjectCard = ({ project, teams, description }) => {
               className="absolute top-2 right-2 text-xs px-3 py-1 z-10 shadow"
               style={categoryStyle}
             >
-              {smartTitle(categoryName)}
+              {smartTitle(categoryLabel)}
             </Badge>
           )}
           <Image
