@@ -198,6 +198,11 @@ export default function FilterAndPick({
                   aria-pressed={isSelected}
                   aria-controls={`${controlId}-results`}
                   onClick={() => setSelectedCategory(category.id)}
+                  style={isSelected && category.id !== "all" ? {
+                    backgroundColor: category.colorHex || "#e0f2fe",
+                    color: category.textColor || "black",
+                    borderColor: category.colorHex || "#e0f2fe",
+                  } : undefined}
                   className={`min-h-11 rounded-full px-4 font-medium focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                     isSelected
                       ? "border border-primary shadow-sm"
