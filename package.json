@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:password-reset": "node --experimental-vm-modules --test tests/password-reset.test.cjs",
+    "test:discovery": "node --experimental-vm-modules --test tests/discovery-categories.test.cjs",
     "postinstall": "prisma generate",
     "seed": "node scripts/seed-database.js"
   },

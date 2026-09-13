@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { getCategorySlugFilter } from '@/lib/project-categories'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
@@ -23,8 +24,9 @@ export async function GET(request) {
             ]
         }
 
-        if (categorySlug !== 'all') {
-            whereClause.category = { slug: categorySlug }
+        const categoryFilter = getCategorySlugFilter(categorySlug)
+        if (categoryFilter) {
+            whereClause.category = { slug: categoryFilter }
         }
 
         // Special handling per filter

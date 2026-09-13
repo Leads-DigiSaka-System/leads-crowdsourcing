@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { ProjectPageSkeleton } from "@/components/ProjectPage/project-page-skeleton";
 import ProjectPageClient from "@/components/ProjectPage/ProjectPageClient";
+import { getCategoryLabel } from "@/lib/project-categories";
 import {
   capitalizeFirstWordOnly,
   nameTitleCase,
@@ -157,7 +158,7 @@ const ProjectPage = async ({ params }) => {
         name: capitalizeFirstWordOnly(project.addedByUser.name || ""),
       }
     : null;
-  const formattedCategory = smartTitle(project.category?.name || "");
+  const formattedCategory = smartTitle(getCategoryLabel(project.category?.name));
   const rawScientists = {
     contextAnswer: project.contextAnswer || "",
     significanceAnswer: project.significanceAnswer || "",

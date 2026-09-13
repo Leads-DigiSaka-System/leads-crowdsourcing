@@ -24,6 +24,8 @@ bun dev
 
 Run `npm run lint` and `npm run build` to check changes. Prisma 7 uses `prisma.config.mjs` for the database URL and migration settings, and the PostgreSQL driver adapter for runtime connections. After changing the schema, run `npx prisma generate` explicitly. Database migrations and seed scripts must be run deliberately against the intended database.
 
+Run `npm run test:discovery` to check category filtering, search, and pagination with an isolated database adapter. Public discovery groups legacy Environment projects under Agriculture, including old `category=environment` links.
+
 Dependencies target stable compatible releases. Prisma stays on stable 7.x while its `latest` tag points to an 8.x release candidate; NextAuth stays on the project's existing v5 beta track. ESLint stays on 9.39.5 because Next.js's bundled React, import, and accessibility lint plugins do not support ESLint 10 yet. The tables use TanStack Table 9's compatibility API to preserve their existing filtering, sorting, and pagination behavior.
 
 The Prisma client keeps the supported `prisma-client-js` generator for this JavaScript project and its CommonJS maintenance scripts. All client instances now use the PostgreSQL adapter. Production builds require the configured Resend and EdgeStore environment variables even when no external services are called during the build.

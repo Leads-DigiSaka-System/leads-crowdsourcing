@@ -3,6 +3,7 @@ import AvatarWithSkeleton from "@/components/ui/AvatarWithSkeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { getCategoryLabel } from "@/lib/project-categories";
 import {
   capitalizeFirstWordOnly,
   formatFundedPercent,
@@ -50,10 +51,7 @@ const ProjectCard = ({ project, teams, description }) => {
   // Expect project.category to be either null or:
   // { id, name, slug, colorHex, textColor }
   const categoryName = project?.category?.name || null;
-  const categoryLabel =
-    categoryName?.trim().toLowerCase() === "environment"
-      ? "Agriculture"
-      : categoryName;
+  const categoryLabel = getCategoryLabel(categoryName);
   const categoryColor = project?.category?.colorHex || "#e0f2fe";
   const categoryTextColorRaw = project?.category?.textColor || "black";
   // Use slug from project, fallback to slugified ID if not available

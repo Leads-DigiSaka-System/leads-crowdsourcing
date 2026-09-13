@@ -1,182 +1,173 @@
 "use client";
-import { capitalizeFirstWordOnly } from "@/lib/utils";
+import {
+  getDiscoveryCategories,
+  normalizeCategorySlug,
+} from "@/lib/project-categories";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { toast } from "sonner";
 import FilterAndPick from "./FilterAndPick";
+
+const filterOptions = [
+  { value: "all", label: "All projects" },
+  { value: "recommended", label: "Recommended only" },
+  { value: "newest", label: "Newest first" },
+  { value: "ending-soon", label: "Ending soon" },
+  { value: "funded", label: "Most funded" },
+];
 
 const DiscoveryClient = ({
   initialProjects = [],
   initialPagination = null,
   initialCategories = null,
-  initialFilter = "recommended",
-  initialCategory = "all",
-  initialSearch = "",
-  initialPage = 1,
+  initialError = null,
 } = {}) => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const lastPushedQsRef = useRef(null);
-
-  const [selectedFilter, setSelectedFilter] = useState(initialFilter);
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
-  const [searchQuery, setSearchQuery] = useState(initialSearch);
-  const [currentPage, setCurrentPage] = useState(initialPage);
-  const [projects, setProjects] = useState(initialProjects);
-  const [pagination, setPagination] = useState(initialPagination);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [categories, setCategories] = useState(
-    initialCategories || [{ id: "all", label: "All" }]
+  const queryString = searchParams.toString();
+  const urlSearch = searchParams.get("search") || "";
+  const urlFilter = searchParams.get("filter") || "recommended";
+  const urlCategory = normalizeCategorySlug(searchParams.get("category"));
+  const [isPending, startTransition] = useTransition();
+  const [selection, setSelection] = useOptimistic(
+    { filter: urlFilter, category: urlCategory },
+    (current, updates) => ({ ...current, ...updates })
   );
+  const [search, setSearch] = useState({
+    value: urlSearch,
+    url: queryString,
+    submitted: null,
+  });
+  const [fallbackCategories, setFallbackCategories] = useState(null);
+  const searchTimer = useRef(null);
+  const pendingNavigation = useRef(null);
+  const committedQuery = useRef(queryString);
 
-  const filterOptions = [
-    { value: "recommended", label: "Recommended" },
-    { value: "newest", label: "Newest" },
-    { value: "ending-soon", label: "Ending soon" },
-    { value: "funded", label: "Funded" },
-  ];
+  // Restore the input on history navigation, while preserving text typed during
+  // an in-flight search request. Keep the input mounted so focus is retained.
+  if (search.url !== queryString) {
+    setSearch({
+      value: search.submitted === queryString ? search.value : urlSearch,
+      url: queryString,
+      submitted: null,
+    });
+  }
 
-  // Sync state when props change (SSR data update)
+  useEffect(() => () => clearTimeout(searchTimer.current), []);
+
   useEffect(() => {
-    setProjects(initialProjects);
-    setPagination(initialPagination);
-    setIsLoading(false);
-  }, [initialProjects, initialPagination]);
+    const isOwnNavigation = pendingNavigation.current?.query === queryString;
+    committedQuery.current = queryString;
+    pendingNavigation.current = null;
+    // History navigation abandons any search that has not been submitted yet.
+    if (!isOwnNavigation) clearTimeout(searchTimer.current);
+  }, [queryString]);
 
-  // Sync local state with URL params (for back/forward navigation)
   useEffect(() => {
-    const f = searchParams.get("filter") || "recommended";
-    const c = searchParams.get("category") || "all";
-    const s = searchParams.get("search") || "";
-    const p = parseInt(searchParams.get("page") || "1", 10);
-    const np = isNaN(p) || p < 1 ? 1 : p;
-
-    setSelectedFilter(f);
-    setSelectedCategory(c);
-    setSearchQuery(s);
-    setCurrentPage(np);
-  }, [searchParams]);
-
-  // Debounce search query updates to the URL
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const currentS = searchParams.get("search") || "";
-      if (searchQuery !== currentS) {
-        updateUrl({ search: searchQuery, page: 1 });
+    if (initialCategories) return;
+    const controller = new AbortController();
+    async function loadCategories() {
+      try {
+        const res = await fetch("/api/categories", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const list = await res.json();
+        if (Array.isArray(list)) setFallbackCategories(getDiscoveryCategories(list));
+      } catch (error) {
+        if (error.name !== "AbortError") console.error("Failed to load categories", error);
       }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    }
+    loadCategories();
+    return () => controller.abort();
+  }, [initialCategories]);
 
   const updateUrl = (updates) => {
-    setIsLoading(true);
-    const params = new URLSearchParams(searchParams);
-
-    // Remove legacy categoryId if present
+    clearTimeout(searchTimer.current);
+    // Merge rapid clicks with the pending URL, so a category click cannot drop
+    // a search or view change that has not finished loading yet.
+    const currentQuery = committedQuery.current;
+    const params = new URLSearchParams(pendingNavigation.current?.query ?? currentQuery);
     params.delete("categoryId");
+    const category = normalizeCategorySlug(updates.category ?? params.get("category"));
+    if (category === "all") params.delete("category");
+    else params.set("category", category);
 
     if (updates.filter !== undefined) {
       if (updates.filter === "recommended") params.delete("filter");
       else params.set("filter", updates.filter);
     }
-
-    if (updates.category !== undefined) {
-      if (updates.category === "all") params.delete("category");
-      else params.set("category", updates.category);
-    }
-
     if (updates.search !== undefined) {
       if (!updates.search) params.delete("search");
       else params.set("search", updates.search);
     }
-
     if (updates.page !== undefined) {
       if (updates.page === 1) params.delete("page");
-      else params.set("page", updates.page.toString());
+      else params.set("page", String(updates.page));
     }
 
-    router.replace(`/discover?${params.toString()}`);
+    const nextQuery = params.toString();
+    if (nextQuery === currentQuery && !pendingNavigation.current) return;
+    pendingNavigation.current = { query: nextQuery };
+    setSearch((current) => ({ ...current, submitted: nextQuery }));
+    startTransition(() => {
+      setSelection({ category, filter: params.get("filter") || "recommended" });
+      router.replace(`${pathname}${nextQuery ? `?${nextQuery}` : ""}`, { scroll: false });
+    });
   };
 
-  // Fetch categories only if not provided
-  useEffect(() => {
-    if (initialCategories) return;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/categories", { cache: "no-store" });
-        const list = await res.json();
-        if (Array.isArray(list)) {
-          const mapped = [
-            { id: "all", label: "All" },
-            ...list
-              .map((c) => ({
-                id: c.slug,
-                label: capitalizeFirstWordOnly(c.name),
-                icon: c.icon || null,
-              }))
-              .sort((a, b) => a.label.localeCompare(b.label)),
-          ];
-          setCategories(mapped);
-        }
-      } catch {}
-    };
-    load();
-  }, [initialCategories]);
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    updateUrl({ page });
+  const handleSearchChange = (value) => {
+    setSearch((current) => ({ ...current, value }));
+    clearTimeout(searchTimer.current);
+    // One debounce for both the visible input and the URL.
+    searchTimer.current = setTimeout(() => updateUrl({ search: value, page: 1 }), 350);
   };
 
-  const handleFilterChange = (newFilter) => {
-    setSelectedFilter(newFilter);
-    updateUrl({ filter: newFilter, page: 1 });
-  };
-
-  const handleCategoryChange = (newCategory) => {
-    setSelectedCategory(newCategory);
-    updateUrl({ category: newCategory, page: 1 });
-  };
-
-  const handleSearchChange = (newSearch) => {
-    setSearchQuery(newSearch);
-    // URL update handled by debounced useEffect
+  const handleResetFilters = () => {
+    setSearch((current) => ({ ...current, value: "" }));
+    updateUrl({ filter: "all", category: "all", search: "", page: 1 });
   };
 
   const handlePickRandomProject = async () => {
     try {
       const res = await fetch("/api/projects/discovery?filter=all&limit=10000");
-      if (!res.ok) return;
+      if (!res.ok) throw new Error("Failed to load projects");
       const data = await res.json();
       const list = Array.isArray(data.projects)
-        ? data.projects.filter((p) => p.show !== false && !p.archived)
+        ? data.projects.filter((project) => project.show !== false && !project.archived)
         : [];
-      if (list.length === 0) return;
-      const randomProject = list[Math.floor(Math.random() * list.length)];
-      router.push(`/discover/${randomProject.slug || randomProject.id}`);
-    } catch (e) {
-      console.error("Error picking random project", e);
+      if (list.length === 0) {
+        toast.info("There are no projects to explore yet.");
+        return;
+      }
+      const project = list[Math.floor(Math.random() * list.length)];
+      router.push(`/discover/${project.slug || project.id}`);
+    } catch {
+      toast.error("Couldn't pick a project. Please try again.");
     }
   };
 
   return (
-    <div className="container mx-auto px-6 py-12 lg:py-16">
+    <div className="container mx-auto px-4 py-8 sm:px-6 lg:py-12">
       <FilterAndPick
-        selectedFilter={selectedFilter}
-        setSelectedFilter={handleFilterChange}
-        selectedCategory={selectedCategory}
-        setSelectedCategory={handleCategoryChange}
-        searchQuery={searchQuery}
+        selectedFilter={selection.filter}
+        setSelectedFilter={(filter) => updateUrl({ filter, search: search.value, page: 1 })}
+        selectedCategory={selection.category}
+        setSelectedCategory={(category) => updateUrl({ category, search: search.value, page: 1 })}
+        searchQuery={search.value}
         setSearchQuery={handleSearchChange}
         filterOptions={filterOptions}
-        categories={categories}
+        categories={initialCategories || fallbackCategories || getDiscoveryCategories([])}
         onPickProject={handlePickRandomProject}
-        projects={projects}
-        pagination={pagination}
-        isLoading={isLoading}
-        error={error}
-        onPageChange={handlePageChange}
+        projects={initialProjects}
+        pagination={initialPagination}
+        isLoading={isPending || search.value !== urlSearch}
+        error={initialError}
+        onPageChange={(page) => updateUrl({ page, search: search.value })}
+        onResetFilters={handleResetFilters}
+        onRetry={() => startTransition(() => router.refresh())}
       />
     </div>
   );
