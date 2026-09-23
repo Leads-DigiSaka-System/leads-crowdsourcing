@@ -82,13 +82,13 @@ export async function POST(req) {
       const result = await sendPasswordResetEmail({ to: user.email, resetUrl, maskedEmail });
       // Resend reports rejected messages through error, without necessarily throwing.
       if (result?.error || !result?.data?.id) {
-        console.error("Password reset email rejected:", result?.error?.name || "missing_message_id");
+        console.error("Password reset email rejected:", result?.error?.message || result?.error?.name || "missing_message_id");
         throw new Error("Email provider did not accept the reset email");
       }
     } catch (error) {
       // Failed delivery must not leave an unusable token or consume the retry quota.
       await prisma.passwordReset.deleteMany({ where: { id: reservation.record.id } });
-      console.error("Password reset email failed:", error.name);
+      console.error("Password reset email failed:", error.message || error.name);
       return NextResponse.json({ message: "Unable to send the reset email. Please try again shortly." }, { status: 503 });
     }
 

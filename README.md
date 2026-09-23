@@ -63,6 +63,10 @@ Google accounts using an email already registered with a password must sign in w
 
 The VPS needs `RESEND_API_KEY` and a verified sending domain in Resend. The default sender is `IMPACT R&D <support@impactofresearch.fund>`; set `APP_EMAIL_SENDER` to override it with another verified sender. Google OAuth credentials do not configure email delivery. See [Resend's Next.js setup](https://resend.com/docs/send-with-nextjs).
 
+If no email arrives, check the server log for `Password reset email rejected:`. A message like `The impactofresearch.fund domain is not verified` means the sender domain must be verified at https://resend.com/domains (or point `APP_EMAIL_SENDER` at a verified sender). Sending from `onboarding@resend.dev` is only for testing and delivers solely to the Resend account owner's inbox.
+
+All emails (password resets, verification codes, donation receipts) are sent through Resend unless SMTP is configured. Set `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME` to send through any SMTP server (for example Hostinger: `smtp.hostinger.com`, port `587`, `MAIL_ENCRYPTION=tls`). While `MAIL_HOST` is set, SMTP takes over and `RESEND_API_KEY`/`APP_EMAIL_SENDER` are ignored; set `MAIL_MAILER=resend` to force Resend.
+
 Reset links use `AUTH_URL`, then `NEXTAUTH_URL`, then `NEXT_PUBLIC_APP_URL`. Configure the production origin as `https://impactofresearch.fund`; missing URLs and localhost or non-HTTPS origins in production are rejected. Links expire after one hour and are usable once. A replacement link may be requested after one minute, up to three requests per account per day and ten per IP per hour. Use the most recent email. Failed sends report an error and release their token so another attempt can be made.
 
 Run `npm run test:password-reset` for isolated regression tests. These tests mock email and database operations and do not send messages or change existing accounts. Deploy the code and restart the VPS application to apply changes; local edits do not update production.

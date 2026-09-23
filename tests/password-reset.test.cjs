@@ -109,6 +109,8 @@ async function createHarness(options = {}) {
         return options.send ? options.send(message) : { data: { id: "mail-1" }, error: null };
       },
     },
+    nodemailer: { default: { createTransport: () => ({ sendMail: async () => ({ messageId: "smtp-mock" }) }) } },
+    resend: { Resend: class { constructor() { this.emails = { send: async () => ({ data: { id: "resend-mock" }, error: null }) }; } } },
     crypto: { default: crypto },
     bcryptjs: { default: bcrypt },
     "next/server": { NextResponse: { json: (body, init) => Response.json(body, init) } },
@@ -401,4 +403,50 @@ test("missing email credentials fail at send time and the route releases its res
   assert.equal((await app.forgot(user.email)).status, 503);
   assert.equal(clients, 2);
   assert.equal(app.state.records.length, 0);
+});
+
+test("SMTP configuration sends reset emails through the SMTP transport and keeps the reservation", async () => {
+  const transports = [];
+  const outgoing = [];
+  const nodemailerMock = {
+    createTransport(config) {
+      transports.push(config);
+      return { async sendMail(message) { outgoing.push(message); return { messageId: "<smtp-1@digisaka.app>" }; } };
+    },
+  };
+  let email;
+  const app = await createHarness({
+    env: {
+      MAIL_MAILER: "smtp", MAIL_HOST: "smtp.hostinger.com", MAIL_PORT: "587",
+      MAIL_USERNAME: "support@digisaka.app", MAIL_PASSWORD: "test-password", MAIL_ENCRYPTION: "tls",
+      MAIL_FROM_ADDRESS: "support@digisaka.app", MAIL_FROM_NAME: "ResearchBayanihan",
+    },
+    adapters: { nodemailer: { default: nodemailerMock } },
+    send: (message) => email.sendPasswordResetEmail(message),
+  });
+  email = await app.module("lib/email.js");
+  assert.equal((await app.forgot(user.email)).status, 200);
+  assert.equal(app.state.records.length, 1);
+  assert.equal(transports.length, 1);
+  assert.equal(transports[0].host, "smtp.hostinger.com");
+  assert.equal(transports[0].port, 587);
+  assert.equal(transports[0].secure, false);
+  assert.equal(transports[0].requireTLS, true);
+  assert.deepEqual({ ...transports[0].auth }, { user: "support@digisaka.app", pass: "test-password" });
+  assert.equal(outgoing.length, 1);
+  assert.equal(outgoing[0].from, "ResearchBayanihan <support@digisaka.app>");
+  assert.equal(outgoing[0].to, user.email);
+  assert.ok(outgoing[0].html.includes("/reset-password?t="));
+});
+
+test("SMTP delivery errors reject and release the reservation", async () => {
+  const failing = await createHarness({
+    env: { MAIL_MAILER: "smtp", MAIL_HOST: "smtp.hostinger.com" },
+    adapters: { nodemailer: { default: { createTransport: () => ({ sendMail: async () => { throw new Error("smtp unavailable"); } }) } } },
+  });
+  const failingEmail = await failing.module("lib/email.js");
+  await assert.rejects(failingEmail.sendPasswordResetEmail({
+    to: user.email, resetUrl: `${productionEnv.AUTH_URL}/reset-password?t=${token}`,
+    maskedEmail: "me***@example.com",
+  }), /smtp unavailable/);
 });
